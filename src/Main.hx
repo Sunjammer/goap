@@ -60,7 +60,7 @@ class Main {
 
 		// Make a plan!
 		var worldEntities = [miner, chest, pickaxe];
-		var actions = [getPickaxe, dropItem, kickRock, mine, getOre, placeOre];
+		var actions = [getPickaxe, dropItem, mine, getOre, placeOre];
 		var plan = miner.planner.getPlans(worldEntities, actions, chestMustBeFull)[0];
 
 		trace("Create plan for " + chestMustBeFull);

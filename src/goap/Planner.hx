@@ -93,9 +93,11 @@ class Planner {
 	}
 
 	function resolveAction(space:PossibilitySpace, outcome:ActionPredicate, plannerState:PlannerState):PlanStep {
+		Sys.sleep(0.5);
 		trace("Looking for action that would result in outcome " + outcome);
 		var matchedActions = [];
 		for (a in space.actions) {
+			trace('\tInspecting action "' + a.name + '"');
 			for (eff in a.effects) {
 				var matches:Bool = false;
 				switch (eff) {
@@ -111,42 +113,49 @@ class Planner {
 							case _:
 						}
 					case TransformProp(entity, key, transform):
+						// Is this transform affecting the desired prop?
 						// Predict before commit
+						var propKey = key;
+						var propEntity = entity;
 						var p = entity.properties.get(key).clone();
 						var currentValue = p.value;
 						p.value = transform(p.value);
 						switch (outcome) {
 							case Prop(entity, key, value):
-								matches = new WorldProperty(entity, key, value).compare(p);
-								if (!matches) {
-									// Will this transform bring us *closer* to our desired outcome?
-									var cvNum:Float = switch (currentValue) {
-										case Int(i):
-											cast i;
-										case Float(i):
-											i;
-										default:
-											0;
+								if (entity != propEntity || propKey != key) {
+									matches = false;
+								} else {
+									matches = new WorldProperty(entity, key, value).compare(p);
+									if (!matches) {
+										// Will this transform bring us *closer* to our desired outcome?
+										var cvNum:Float = switch (currentValue) {
+											case Int(i):
+												cast i;
+											case Float(i):
+												i;
+											default:
+												0;
+										}
+										var nvNum:Float = switch (p.value) {
+											case Int(i):
+												cast i;
+											case Float(i):
+												i;
+											default:
+												0;
+										}
+										var goalNum:Float = switch (value) {
+											case Int(i):
+												cast i;
+											case Float(i):
+												i;
+											default:
+												0;
+										}
+										matches = goalNum - cvNum > goalNum - nvNum;
+										if (matches)
+											trace('\t\tTransform will bring numeric value closer to goal');
 									}
-									var nvNum:Float = switch (p.value) {
-										case Int(i):
-											cast i;
-										case Float(i):
-											i;
-										default:
-											0;
-									}
-									var goalNum:Float = switch (value) {
-										case Int(i):
-											cast i;
-										case Float(i):
-											i;
-										default:
-											0;
-									}
-									matches = goalNum - cvNum > goalNum - nvNum;
-									if (matches)
-										trace('\tTransform will bring numeric value closer to goal');
 								}
 							case _:
 						}
@@ -157,40 +166,38 @@ class Planner {
 			}
 		}
 		for (a in matchedActions) {
-			trace('\t"' + a.name + '" matches desired outcome');
-			if (a.predicates.length == 0) {
-				// return a;
-				return {
-					action: a,
-					steps: []
-				};
-			}
+			trace('\t\t"' + a.name + '" matches desired outcome');
 			for (pred in a.predicates) {
 				// our new desired outcome is the first predicate of this action
-				trace('\t"' + a.name + '" has predicate: ' + pred);
+				trace('\t\t"' + a.name + '" has predicate: ' + pred);
 				var passed = true;
 				switch (pred) {
 					case Query(None(entity)):
 						if (space.entities.contains(entity)) {
+							trace("\t\t\tThere are entities of type " + entity);
 							passed = false;
 						}
-						trace('\t\t' + 'Pass');
 					case Query(Some(entity)):
 						if (!space.entities.contains(entity)) {
+							trace("\t\t\tThere are no entities of type " + entity);
 							passed = false;
 						}
-						trace('\t\t' + 'Pass');
 					case Prop(entity, key, value):
 						var prop = new WorldProperty(entity, key, value);
 						if (!prop.isValid()) {
-							trace("\tProp is not valid");
+							trace("\t\t\tProp is not valid");
 							passed = false;
 						}
-						trace('\t\t' + 'Pass');
 				}
 				if (!passed) {
-					return resolveAction(space.clone(), pred, plannerState);
+					trace('\t\t\t' + 'Predicate not passed');
+					return resolveAction(space, pred, plannerState);
 				}
+				trace('\t\t\t' + 'Predicate passed');
+				return {
+					action: a,
+					steps: []
+				};
 			}
 		}
 		throw 'Could not resolve to desired outcome';
