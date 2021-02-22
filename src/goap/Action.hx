@@ -2,6 +2,7 @@ package goap;
 
 import goap.Planner.PossibilitySpace;
 import goap.WorldProperty;
+using Lambda;
 
 typedef ActionMetrics = {
 	isValid:Bool
@@ -15,6 +16,7 @@ enum QueryArg {
 enum ActionPredicate {
 	Prop(entity:Entity, key:String, value:WorldPropValue);
 	Query(arg:QueryArg);
+	Dynamic(func:PossibilitySpace->Bool);
 }
 
 enum ActionEffect {
@@ -37,18 +39,20 @@ class Action extends Identified {
 		this.cost = cost;
 	}
 
-	public function apply(space:PossibilitySpace) {
+	public function apply(entities:Array<Entity>) {
 		for (effect in effects)
 			switch (effect) {
 				case Prop(entity, key, value):
-					new WorldProperty(entity, key, value).apply();
+					var e = entities.find(e -> e.id == entity.id);
+					new WorldProperty(e, key, value).apply();
 				case Spawn(e):
-					space.entities.push(e);
+					entities.push(e);
 				case Despawn(e):
-					space.entities.remove(e);
+					entities.remove(e);
 				case TransformProp(entity, key, transform):
-					var val = entity.properties.get(key).value;
-					entity.properties.get(key).value = transform(val);
+					var e = entities.find(e -> e.id == entity.id);
+					var val = e.properties.get(key).value;
+					e.properties.get(key).value = transform(val);
 			}
 	}
 
